@@ -65,9 +65,9 @@ This app is particularly useful for:
 
 ## Example Screenshots
 
-![Stock Analysis Screenshot](screenshots/ss1.png)
-![In-Depth Analysis Screenshot](screenshots/ss2.png)
-![Reports Screenshot](screenshots/ss3.png)
+![Stock Analysis Screenshot](screenshot/ss1.png)
+![In-Depth Analysis Screenshot](screenshot/ss2.png)
+![Reports Screenshot](screenshot/ss3.png)
 
 ## Installation
 
