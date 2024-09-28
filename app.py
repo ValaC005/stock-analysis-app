@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import yfinance as yf
 import ta
 from io import BytesIO
@@ -41,24 +43,6 @@ def visualize_prices(df, symbol):
     fig.update_layout(yaxis_title='Price', xaxis_title='Date')
     return fig
 
-# Function to visualize volume
-def visualize_volume(df, symbol):
-    fig = px.bar(df, x='Datetime', y='Volume', title=f'{symbol} Trading Volume')
-    fig.update_layout(yaxis_title='Volume', xaxis_title='Date')
-    return fig
-
-# Function to visualize RSI
-def visualize_rsi(df, symbol):
-    fig = px.line(df, x='Datetime', y='RSI', title=f'{symbol} RSI (Relative Strength Index)')
-    fig.update_layout(yaxis_title='RSI', xaxis_title='Date')
-    return fig
-
-# Function to visualize MACD
-def visualize_macd(df, symbol):
-    fig = px.line(df, x='Datetime', y='MACD', title=f'{symbol} MACD (Moving Average Convergence Divergence)')
-    fig.update_layout(yaxis_title='MACD', xaxis_title='Date')
-    return fig
-
 # Function to get stock info
 def get_stock_info(symbol):
     stock = yf.Ticker(symbol)
@@ -78,8 +62,6 @@ def generate_detailed_report(symbol):
         "Stock Info": stock.info,
         "History (1 Month)": stock.history(period="1mo").reset_index(),
         "History Metadata": stock.history_metadata,
-        ## "Actions": stock.actions, 
-        ## "Capital Gains": stock.capital_gains, # only for mutual funds & etfs
         "Shares": stock.get_shares_full(start="2022-01-01", end=None).reset_index(),
         "Income Statement": stock.financials.reset_index(),
         "Quarterly Income Statement": stock.quarterly_financials.reset_index(),
@@ -121,6 +103,54 @@ def create_downloadable_report(report, symbol):
     output.seek(0)
     return output
 
+# Function to visualize stock prices, moving averages, volume, and RSI
+def visualize_combined_chart(df, symbol):
+    # Create a figure with two rows and a shared x-axis
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, 
+                        row_heights=[0.7, 0.3], vertical_spacing=0.05,
+                        specs=[[{"secondary_y": True}], [{}]])  # Secondary y-axis for the first row (volume)
+
+    # Add price and moving averages (1st quadrant)
+    fig.add_trace(
+        go.Scatter(x=df['Datetime'], y=df['Close'], name='Close Price', line=dict(color='blue')),
+        row=1, col=1, secondary_y=False
+    )
+    fig.add_trace(
+        go.Scatter(x=df['Datetime'], y=df['MA20'], name='20-Day MA', line=dict(color='green')),
+        row=1, col=1, secondary_y=False
+    )
+    fig.add_trace(
+        go.Scatter(x=df['Datetime'], y=df['MA50'], name='50-Day MA', line=dict(color='orange')),
+        row=1, col=1, secondary_y=False
+    )
+    
+    # Add volume as a bar chart (1st quadrant with secondary y-axis)
+    fig.add_trace(
+        go.Bar(x=df['Datetime'], y=df['Volume'], name='Volume', opacity=0.3, marker_color='purple'),
+        row=1, col=1, secondary_y=True
+    )
+
+    # Add RSI (2nd quadrant)
+    fig.add_trace(
+        go.Scatter(x=df['Datetime'], y=df['RSI'], name='RSI', line=dict(color='blue')),
+        row=2, col=1
+    )
+
+    # Update layout for the figure
+    fig.update_layout(
+        title=f'{symbol} Stock Price, Moving Averages, and Volume',
+        xaxis_title='Date',
+        showlegend=True,
+        height=700,
+    )
+    
+    # Update y-axes titles and ranges
+    fig.update_yaxes(title_text="Price", row=1, col=1, secondary_y=False)
+    fig.update_yaxes(title_text="Volume", row=1, col=1, secondary_y=True)
+    fig.update_yaxes(title_text="RSI", row=2, col=1, range=[0, 100])  # RSI y-axis range
+
+    return fig
+
 # Streamlit app
 st.title('Stock Analysis App')
 
@@ -133,45 +163,6 @@ with tab1:
     ## Stock Analysis App
     This app provides comprehensive stock analysis using historical price data, moving averages, and various technical indicators. 
     It also allows users to generate detailed financial reports for selected stocks from a predefined list of popular stocks.
-
-    ### Target Users
-    This app is particularly useful for:
-    - **Individual Investors**: Who want to analyze stock performance and make informed investment decisions.
-    - **Financial Analysts**: Who need detailed reports and technical indicators for professional analysis.
-    - **Students and Educators**: Who are learning about financial markets and technical analysis.
-
-    ## Instruction Manual
-
-    ### Getting Started
-    1. **Launching the App**: Run the script in a Streamlit environment. The command typically used is `streamlit run script_name.py`.
-    2. **Navigating the Interface**: The app interface is divided into four main tabs accessible at the top of the app:
-        - **Stock Analysis**: General stock analysis with various metrics.
-        - **In-Depth Stock Analysis**: Detailed stock information and historical performance.
-        - **Reports**: Generate and download comprehensive financial reports.
-        - **About this app**: Information about the app.
-
-    ### Using the "Stock Analysis" Tab
-    1. **Select Stock Symbol**: Choose a stock symbol from the dropdown list on the sidebar.
-    2. **Select Analysis Metrics**: Choose the metrics you want to analyze from the options provided:
-        - Prices and Moving Averages
-        - Trading Volume
-        - RSI (Relative Strength Index)
-        - MACD (Moving Average Convergence Divergence)
-    3. **View Analysis**: The selected metrics will be displayed as interactive Plotly charts. Detailed explanations for each metric will be shown below the charts.
-
-    ### Using the "In-Depth Stock Analysis" Tab
-    1. **Select Stock Symbol for In-Depth Analysis**: Choose a stock symbol from the dropdown list on the sidebar.
-    2. **View In-Depth Analysis**: The app will display detailed information about the stock, including:
-        - Business summary
-        - Price-to-Earnings (P/E) ratio
-        - Beta (volatility)
-        - Dividend rate
-    3. **Detailed Stock Chart**: A detailed stock chart for the past year will also be displayed.
-
-    ### Using the "Reports" Tab
-    1. **Select Stock Symbol for Detailed Reports**: Choose a stock symbol from the dropdown list on the sidebar.
-    2. **Generate and View Report**: The app will generate a detailed financial report for the selected stock. Various sections of the report will be displayed, including stock history, financial statements, holders, and insider transactions.
-    3. **Download Report**: A button will be provided to download the report as an Excel file.
     """)
 
 with tab2:
@@ -191,15 +182,12 @@ with tab2:
             
             st.subheader('2. Price-to-Earnings (P/E) Ratio')
             st.markdown(info.get('trailingPE', 'No information available'))
-            st.markdown("\nThe P/E ratio is a valuation ratio of a company's current share price compared to its per-share earnings. A high P/E ratio could mean that the stock is overvalued, or else that investors are expecting high growth rates in the future.")
             
             st.subheader('3. Beta')
             st.markdown(info.get('beta', 'No information available'))
-            st.markdown("\nBeta is a measure of a stock's volatility in relation to the overall market. A beta greater than 1 indicates that the stock is more volatile than the market, while a beta less than 1 indicates that the stock is less volatile.")
             
             st.subheader('4. Dividend')
             st.markdown(info.get('dividendRate', 'No information available'))
-            st.markdown("\nThe dividend is the distribution of a portion of a company's earnings, decided and managed by the company's board of directors, to a class of its shareholders. Dividends can be issued as cash payments, as shares of stock, or other property.")
             
             # Get stock data
             df = get_stock_data(symbol, period='1y', interval='1d')
@@ -208,32 +196,17 @@ with tab2:
             st.subheader('5. Stock Chart')
             detailed_chart_fig = visualize_detailed_chart(df, symbol)
             st.plotly_chart(detailed_chart_fig)
-            st.markdown("### This chart shows the detailed stock price movements over a period of one year. It helps in analyzing the historical performance of the stock.")
         
         except Exception as e:
             st.error(f"Error fetching data: {e}")
 
+# Replaced Tab 3 with combined chart
 with tab3:
     st.sidebar.header('Settings')
     symbol = st.sidebar.selectbox('Stock Symbol', top_50_stocks)
-    metrics = st.sidebar.multiselect(
-        'Select Analysis Metrics',
-        ['Prices and Moving Averages', 'Trading Volume', 'RSI (Relative Strength Index)', 'MACD (Moving Average Convergence Divergence)'],
-        ['Prices and Moving Averages', 'Trading Volume', 'RSI (Relative Strength Index)', 'MACD (Moving Average Convergence Divergence)']
-    )
 
     if symbol:
         st.header(f'Analysis for {symbol}')
-        
-        # Create placeholders for charts
-        prices_placeholder = st.empty()
-        st.markdown("### Prices and Moving Averages\nThis chart shows the closing price of the stock along with 20-day and 50-day moving averages. The moving averages help smooth out price data to better identify the direction of the trend over a longer period. The 20-day moving average reacts quicker to price changes than the 50-day moving average.")
-        volume_placeholder = st.empty()
-        st.markdown("### Trading Volume\nThis chart represents the number of shares traded during each time interval. High trading volumes can indicate high interest in the stock, potentially preceding significant price movements.")
-        rsi_placeholder = st.empty()
-        st.markdown("### RSI (Relative Strength Index)\nThe RSI is a momentum oscillator that measures the speed and change of price movements. It oscillates between 0 and 100. Traditionally, an RSI above 70 is considered overbought, and below 30 is considered oversold.")
-        macd_placeholder = st.empty()
-        st.markdown("### MACD (Moving Average Convergence Divergence)\nThe MACD is a trend-following momentum indicator that shows the relationship between two moving averages of a stock’s price. It consists of the MACD line (difference between the 12-day and 26-day EMA) and the signal line (9-day EMA of the MACD line). When the MACD line crosses above the signal line, it is a bullish signal, and when it crosses below, it is a bearish signal.")
         
         # Get stock data
         df = get_stock_data(symbol, period='1d', interval='1m')
@@ -242,20 +215,11 @@ with tab3:
         df = calculate_moving_averages(df)
         df = calculate_indicators(df)
         
-        # Update visualizations
-        if 'Prices and Moving Averages' in metrics:
-            prices_fig = visualize_prices(df, symbol)
-            prices_placeholder.plotly_chart(prices_fig)
-        if 'Trading Volume' in metrics:
-            volume_fig = visualize_volume(df, symbol)
-            volume_placeholder.plotly_chart(volume_fig)
-        if 'RSI (Relative Strength Index)' in metrics:
-            rsi_fig = visualize_rsi(df, symbol)
-            rsi_placeholder.plotly_chart(rsi_fig)
-            st.markdown("### RSI (Relative Strength Index)\nThe RSI is a momentum oscillator that measures the speed and change of price movements. It oscillates between 0 and 100. Traditionally, an RSI above 70 is considered overbought, and below 30 is considered oversold.")
-        if 'MACD (Moving Average Convergence Divergence)' in metrics:
-            macd_fig = visualize_macd(df, symbol)
-            macd_placeholder.plotly_chart(macd_fig)
+        # Create combined chart with price, volume, and RSI
+        combined_chart_fig = visualize_combined_chart(df, symbol)
+        
+        # Display the combined chart
+        st.plotly_chart(combined_chart_fig)
 
 with tab4:
     st.sidebar.header('Detailed Reports Settings')
@@ -282,4 +246,3 @@ with tab4:
         
         except Exception as e:
             st.error(f"Error fetching data: {e}")
-            
